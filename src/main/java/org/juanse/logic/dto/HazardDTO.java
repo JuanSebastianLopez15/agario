@@ -1,6 +1,8 @@
 package org.juanse.logic.dto;
 
-public class HazardDTO {
+import java.io.Serializable;//Combierte un objeto a bytes, los sockets UDP solo entienden arreglos de bytes
+
+public class HazardDTO implements Serializable{
     public String id;
     public double x;
     public double y;

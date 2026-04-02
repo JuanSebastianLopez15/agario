@@ -6,12 +6,13 @@ import org.juanse.logic.dto.PlayerDTO;
 
 import java.util.List;
 import java.util.Map;
+import java.io.Serializable;
 
 /**
  * Snapshot inmutable del estado del juego en un instante de tiempo.
  */
-
-public class GameSnapshot {
+//Combierte un objeto a bytes, los sockets UDP solo entienden arreglos de bytes
+public class GameSnapshot implements Serializable{
 
     private final List<PlayerDTO> players;
     private final List<PelletDTO> pellets;

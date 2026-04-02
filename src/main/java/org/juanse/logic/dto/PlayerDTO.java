@@ -1,6 +1,7 @@
 package org.juanse.logic.dto;
+import java.io.Serializable;//Combierte un objeto a bytes, los sockets UDP solo entienden arreglos de bytes
 
-public class PlayerDTO {
+public class PlayerDTO implements  Serializable{
     public String id;
     public String owner;
     public double x;

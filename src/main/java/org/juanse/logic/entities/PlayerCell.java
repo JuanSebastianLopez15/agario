@@ -3,10 +3,14 @@ package org.juanse.logic.entities;
 import java.util.UUID;
 
 /**
+ * ///
  * Representa la célula de un jugador en el juego.
  * Puede crecer, encogerse y dividirse.
  */
 public class PlayerCell extends GameEntity {
+
+    private double targetX; ///
+    private double targetY; ///
 
     private final String cellId;       // ID único de esta célula (un jugador puede tener varias tras dividirse)
     private final String ownerName;    // Nombre del jugador dueño
@@ -22,6 +26,8 @@ public class PlayerCell extends GameEntity {
         this.cellId = UUID.randomUUID().toString();
         this.alive = true;
         this.splitTimestamp = 0;
+        this.targetX = x;///
+        this.targetY = y;///
     }
 
     /**
@@ -65,5 +71,13 @@ public class PlayerCell extends GameEntity {
         return "PlayerCell[owner=" + ownerName + ", id=" + cellId.substring(0, 6)
                 + ", mass=" + String.format("%.1f", mass) + "]";
     }
+
+    ///////////
+    public void setTarget(double tx, double ty) {
+        this.targetX = tx;
+        this.targetY = ty;
+    }
+    public double getTargetX() { return targetX; }
+    public double getTargetY() { return targetY; }
 }
 
