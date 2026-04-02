@@ -59,6 +59,11 @@ public class ScoreManager implements IGameEventListener {
         return scores.getOrDefault(playerName, 0);
     }
 
+    public void setScores(Map<String, Integer> newScores) {
+        scores.clear();
+        scores.putAll(newScores);
+    }
+
     public int getAbsorptions(String playerName) {
         return absorptions.getOrDefault(playerName, 0);
     }

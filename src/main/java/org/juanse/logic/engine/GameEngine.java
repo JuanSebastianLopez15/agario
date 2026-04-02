@@ -1,5 +1,6 @@
 package org.juanse.logic.engine;
 
+import org.juanse.logic.dto.*;
 import org.juanse.logic.entities.HazardBall;
 import org.juanse.logic.entities.Pellet;
 import org.juanse.logic.entities.PlayerCell;
@@ -10,10 +11,7 @@ import org.juanse.logic.state.GameOverState;
 import org.juanse.logic.state.IGameState;
 import org.juanse.logic.state.RunningState;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 /**
  * Núcleo del juego. Coordina entidades, reglas, estados y notificaciones.
@@ -31,9 +29,10 @@ public class GameEngine {
     // ── Configuración del mapa ────────────────────────────────
     private final double mapWidth;
     private final double mapHeight;
-    private static final int MAX_PELLETS   = 60;
+    private static final int MAX_PELLETS   = 80;
     private static final int MAX_HAZARDS   = 8;
     private static final long GAME_DURATION_MS = 3 * 60 * 1000L; // 3 minutos
+    private boolean isHost = false;
 
     // ── Estado del juego ──────────────────────────────────────
     private final List<PlayerCell>        players     = new ArrayList<>();
@@ -95,7 +94,9 @@ public class GameEngine {
      * El estado actual decide si se aplican reglas o no.
      */
     public void update() {
-        currentState.update(this);
+        if (isHost) {
+            currentState.update(this);
+        }
     }
 
     // ── API de spawn ──────────────────────────────────────────
@@ -172,14 +173,98 @@ public class GameEngine {
      * Genera una foto del estado actual para serializar y enviar por UDP.
      */
     public GameSnapshot createSnapshot() {
+
+        List<PlayerDTO> playerDTOs = players.stream()
+                .map(p -> new PlayerDTO(
+                        p.getCellId(),
+                        p.getOwnerName(),
+                        p.getX(),
+                        p.getY(),
+                        p.getMass()
+                ))
+                .toList();
+
+        List<PelletDTO> pelletDTOs = pellets.stream()
+                .map(p -> new PelletDTO(
+                        p.getPelletId(),
+                        p.getX(),
+                        p.getY()
+                ))
+                .toList();
+
+        List<HazardDTO> hazardDTOs = hazardBalls.stream()
+                .map(h -> new HazardDTO(
+                        h.getHazardId(),
+                        h.getX(),
+                        h.getY()
+                ))
+                .toList();
+
         return new GameSnapshot(
-                Collections.unmodifiableList(players),
-                Collections.unmodifiableList(pellets),
-                Collections.unmodifiableList(hazardBalls),
+                playerDTOs,
+                pelletDTOs,
+                hazardDTOs,
                 scoreManager.getAllScores(),
                 getRemainingTimeMs(),
                 currentState.getStateName()
         );
+    }
+
+    public void applySnapshot(GameSnapshot snapshot) {
+
+        // ── MAPAS para sincronización ────────────────────────────
+        Map<String, PlayerCell> currentPlayers = new HashMap<>();
+        for (PlayerCell p : players) {
+            currentPlayers.put(p.getCellId(), p);
+        }
+
+        Map<String, Pellet> currentPellets = new HashMap<>();
+        for (Pellet p : pellets) {
+            currentPellets.put(p.getPelletId(), p);
+        }
+
+        Map<String, HazardBall> currentHazards = new HashMap<>();
+        for (HazardBall h : hazardBalls) {
+            currentHazards.put(h.getHazardId(), h);
+        }
+
+        // ── PLAYERS ──────────────────────────────────────────────
+        players.clear();
+
+        for (PlayerDTO dto : snapshot.getPlayers()) {
+            PlayerCell existing = currentPlayers.get(dto.getId());
+
+            if (existing != null) {
+                existing.setX(dto.getX());
+                existing.setY(dto.getY());
+                existing.setMass(dto.getMass());
+                players.add(existing);
+            } else {
+                players.add(new PlayerCell(
+                        dto.getOwner(),
+                        dto.getX(),
+                        dto.getY(),
+                        dto.getMass()
+                ));
+            }
+        }
+
+        // ── PELLETS ──────────────────────────────────────────────
+        pellets.clear();
+
+        for (PelletDTO dto : snapshot.getPellets()) {
+            pellets.add(new Pellet(dto.getX(), dto.getY()));
+        }
+
+        // ── HAZARDS ──────────────────────────────────────────────
+        hazardBalls.clear();
+
+        for (HazardDTO dto : snapshot.getHazards()) {
+            hazardBalls.add(new HazardBall(dto.getX(), dto.getY()));
+        }
+
+        // ── SCORES ───────────────────────────────────────────────
+        scoreManager.setScores(snapshot.getScores());
     }
 
     // ── Consultas de tiempo ───────────────────────────────────
@@ -211,6 +296,10 @@ public class GameEngine {
     public double                  getMapWidth()     { return mapWidth; }
     public double                  getMapHeight()    { return mapHeight; }
     public ScoreManager            getScoreManager() { return scoreManager; }
-    public IGameState               getCurrentState() { return currentState; }
+    public IGameState              getCurrentState() { return currentState; }
+    public void setHost(boolean host) { this.isHost = host; }
+    public boolean isHost() {
+        return isHost;
+    }
 }
 
