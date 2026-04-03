@@ -1,6 +1,7 @@
 package org.juanse.ui.screens;
 
 import org.juanse.ui.GameWindow;
+import org.juanse.ui.sound.SoundManager;
 
 import javax.swing.*;
 import java.awt.*;
@@ -9,23 +10,41 @@ import java.util.Map;
 /**
  * Pantalla de fin del juego.
  * Muestra ganador, puntajes y tiempo total.
- * Principio S (SRP): solo muestra resultados finales.
+ *
+ * <p>Principio S (SRP): solo muestra resultados finales.</p>
  */
 public class EndScreen {
 
+    /** Panel principal de la pantalla. */
     private JPanel mainPanel;
+
+    /** Panel central con la información del resultado. */
     private JPanel infoPanel;
+
+    /** Label del título. */
     private JLabel tituloLabel;
+
+    /** Botón para volver al inicio. */
     private JButton volverButton;
 
+    /** Referencia a la ventana principal. */
     private final GameWindow gameWindow;
 
+    /**
+     * Constructor de la pantalla final.
+     *
+     * @param gameWindow referencia a la ventana principal
+     */
     public EndScreen(GameWindow gameWindow) {
         this.gameWindow = gameWindow;
     }
 
+    /**
+     * Inicializa el listener del botón volver al inicio.
+     */
     public void initListeners() {
         volverButton.addActionListener(e -> {
+            SoundManager.stopBackground();
             gameWindow.dispose();
             SwingUtilities.invokeLater(() -> {
                 GameWindow newWindow = new GameWindow();
@@ -34,7 +53,15 @@ public class EndScreen {
         });
     }
 
+    /**
+     * Muestra los resultados finales del juego.
+     *
+     * @param winner      nombre del ganador
+     * @param scores      mapa de puntajes por jugador
+     * @param totalTimeMs tiempo total de juego en milisegundos
+     */
     public void show(String winner, Map<String, Integer> scores, long totalTimeMs) {
+        SoundManager.playBackground("final.wav");
         initListeners();
 
         infoPanel.removeAll();
@@ -83,5 +110,10 @@ public class EndScreen {
         infoPanel.repaint();
     }
 
+    /**
+     * Retorna el panel principal para agregarlo al contenedor.
+     *
+     * @return panel principal
+     */
     public JPanel getMainPanel() { return mainPanel; }
 }
