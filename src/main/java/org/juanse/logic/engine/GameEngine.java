@@ -58,6 +58,7 @@ public class GameEngine {
         rules.add(new SplitRule());
         rules.add(new AbsorptionRule());
         rules.add(new VictoryRule());
+        rules.add(new MovementRule());
 
         // El ScoreManager es un Observer integrado por defecto
         scoreManager = new ScoreManager();

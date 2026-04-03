@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form xmlns="http://www.intellij.com/uidesigner/form/" version="1" bind-to-class="org.juanse.ui.screens.EndScreen">
+  <grid id="27dc6" binding="mainPanel" layout-manager="BorderLayout" hgap="0" vgap="0">
+    <constraints>
+      <xy x="20" y="20" width="646" height="400"/>
+    </constraints>
+    <properties>
+      <background color="-15461334"/>
+      <foreground color="-15027486"/>
+    </properties>
+    <border type="none"/>
+    <children>
+      <component id="1d8ed" class="javax.swing.JLabel" binding="tituloLabel">
+        <constraints border-constraint="North"/>
+        <properties>
+          <background color="-15461334"/>
+          <font name="Jokerman" size="48" style="1"/>
+          <foreground color="-15027486"/>
+          <horizontalAlignment value="0"/>
+          <text value="¡FIN DEL JUEGO!"/>
+        </properties>
+      </component>
+      <component id="53744" class="javax.swing.JButton" binding="volverButton">
+        <constraints border-constraint="South"/>
+        <properties>
+          <background color="-10185235"/>
+          <font name="Jokerman" size="20" style="1"/>
+          <text value="Volver al inicio "/>
+        </properties>
+      </component>
+      <grid id="e4ca5" binding="infoPanel" layout-manager="GridLayoutManager" row-count="1" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+        <margin top="0" left="0" bottom="0" right="0"/>
+        <constraints border-constraint="Center"/>
+        <properties>
+          <background color="-15066578"/>
+        </properties>
+        <border type="none"/>
+        <children/>
+      </grid>
+    </children>
+  </grid>
+</form>
