@@ -138,6 +138,11 @@ public class GameScreen extends JPanel implements IGameEventListener {
         gameLoop = new Timer(50, e -> {
             if (engine.isHost()) {
                 engine.update();
+                //el host envia el estado del juego
+                org.juanse.logic.engine.GameSnapshot snapshot = engine.createSnapshot();
+                if (sender != null && targetIp != null && !targetIp.isEmpty()) {
+                    sender.sendObject(snapshot, targetIp, targetPort);
+                }
             }
             updateHUD();
             canvas.repaint();

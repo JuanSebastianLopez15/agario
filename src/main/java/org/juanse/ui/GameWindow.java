@@ -64,7 +64,8 @@ public class GameWindow extends JFrame {
      */
     public GameWindow() {
         setTitle("Agar.io - Multijugador");
-        setExtendedState(JFrame.MAXIMIZED_BOTH);
+        //setExtendedState(JFrame.MAXIMIZED_BOTH);
+        this.setSize(1000, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
         setLocationRelativeTo(null);
@@ -127,8 +128,8 @@ public class GameWindow extends JFrame {
      */
     public void startGame(String nombre, String ip, boolean isHost) {
         this.playerName = nombre;
-        this.isHost     = isHost;
-        this.targetIp   = ip;
+        this.isHost = isHost;
+        this.targetIp = (ip == null || ip.trim().isEmpty()) ? "127.0.0.1" : ip;
 
         int listenPort = isHost ? 5000 : 5001;
         int targetPort = isHost ? 5001 : 5000;
@@ -137,14 +138,15 @@ public class GameWindow extends JFrame {
         sender = new UDPSender();
 
         receiver = new UDPReceiver(listenPort, data -> {
-            if (isHost && data instanceof MouseInputDTO) {
-                MouseInputDTO mouse = (MouseInputDTO) data;
-                engine.getPlayers().stream()
-                        .filter(p -> p.getOwnerName().equals(mouse.getPlayerName()))
-                        .forEach(p -> p.setTarget(mouse.getTargetX(), mouse.getTargetY()));
-            } else if (!isHost && data instanceof GameSnapshot) {
-                engine.applySnapshot((GameSnapshot) data);
-            }
+            // Usamos invokeLater para que los datos en red no choquen con el dibujado de la pantalla
+            javax.swing.SwingUtilities.invokeLater(() -> {
+                if (isHost && data instanceof MouseInputDTO) {
+                    MouseInputDTO mouse = (MouseInputDTO) data;
+                    engine.updatePlayerTarget(mouse.getPlayerName(), mouse.getTargetX(), mouse.getTargetY());
+                } else if (!isHost && data instanceof GameSnapshot) {
+                    engine.applySnapshot((GameSnapshot) data);
+                }
+            });
         });
         receiver.start();
 
@@ -154,21 +156,18 @@ public class GameWindow extends JFrame {
 
         gameScreen.setPlayerName(nombre);
         gameScreen.setSender(sender);
-        gameScreen.setTargetIp(targetIp);
+        gameScreen.setTargetIp(this.targetIp);
         gameScreen.setTargetPort(targetPort);
 
-        // Quitar fondo decorativo y overlay de inicio
         layeredPane.remove(backgroundPanel);
         layeredPane.remove(startOverlay);
 
-        // Mostrar pantalla del juego
         gameScreen.getMainPanel().setVisible(true);
         layeredPane.revalidate();
         layeredPane.repaint();
 
         gameScreen.startLoop();
     }
-
     /**
      * Muestra la pantalla final con los resultados del juego.
      *

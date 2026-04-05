@@ -12,7 +12,7 @@ import org.juanse.logic.state.IGameState;
 import org.juanse.logic.state.RunningState;
 
 import java.util.*;
-
+import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * Núcleo del juego. Coordina entidades, reglas, estados y notificaciones.
  *
@@ -32,10 +32,11 @@ public class GameEngine {
     private static final int MAX_HAZARDS   = 8;
     private static final long GAME_DURATION_MS = 3 * 60 * 1000L;
     private boolean isHost = false;
+    //CopyOnWriteArrayList para que sean a prueba de choques de hilos
+    private final List<PlayerCell>        players     = new CopyOnWriteArrayList<>();
+    private final List<Pellet>            pellets     = new CopyOnWriteArrayList<>();
+    private final List<HazardBall>        hazardBalls = new CopyOnWriteArrayList<>();
 
-    private final List<PlayerCell>        players     = new ArrayList<>();
-    private final List<Pellet>            pellets     = new ArrayList<>();
-    private final List<HazardBall>        hazardBalls = new ArrayList<>();
     private final List<IGameRule>         rules       = new ArrayList<>();
     private final List<IGameEventListener> listeners   = new ArrayList<>();
 
@@ -48,6 +49,8 @@ public class GameEngine {
         this.mapWidth  = mapWidth;
         this.mapHeight = mapHeight;
 
+        rules.add(new org.juanse.logic.rules.MovementRule());
+        rules.add(new BoundaryRule());
         rules.add(new BoundaryRule());
         rules.add(new MovementRule());
         rules.add(new GrowthRule());
@@ -214,5 +217,13 @@ public class GameEngine {
     public IGameState        getCurrentState() { return currentState; }
     public void setHost(boolean host)          { this.isHost = host; }
     public boolean isHost()                    { return isHost; }
+// servidor indica a donde se mueve el jugador
+    public void updatePlayerTarget(String playerName, double targetX, double targetY) {
+        for (PlayerCell p : players) {
+            if (p.getOwnerName().equals(playerName)) {
+                p.setTarget(targetX, targetY);
+            }
+        }
+    }
 }
 
