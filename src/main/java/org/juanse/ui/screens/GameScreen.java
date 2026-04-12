@@ -7,8 +7,8 @@ import org.juanse.logic.observers.IGameEventListener;
 import org.juanse.ui.GameWindow;
 import org.juanse.ui.renderer.GamePanel;
 import org.juanse.ui.sound.SoundManager;
-import org.juanse.UDP.MouseInputDTO;
-import org.juanse.UDP.UDPSender;
+import org.juanse.udp.MouseInputDTO;
+import org.juanse.udp.UDPSender;
 
 import javax.swing.*;
 import java.awt.*;

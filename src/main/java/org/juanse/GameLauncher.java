@@ -42,11 +42,10 @@ import java.util.List;
 ////////////////////////
 //prueba de el crack de lopez abajo
 
-import org.juanse.UDP.UDPReceiver;
-import org.juanse.UDP.UDPSender;
-import org.juanse.UDP.MouseInputDTO;
+import org.juanse.udp.UDPReceiver;
+import org.juanse.udp.UDPSender;
+import org.juanse.udp.MouseInputDTO;
 
-import java.util.List;
 import java.util.Scanner;
 
 public class GameLauncher {

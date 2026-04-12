@@ -1,4 +1,4 @@
-package org.juanse.UDP;
+package org.juanse.udp;
 
 import java.io.ByteArrayInputStream;
 import java.io.ObjectInputStream;
