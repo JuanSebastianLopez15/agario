@@ -6,11 +6,6 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 
-/**
- * Hilo que escucha constantemente en un puerto UDP.
- * CAMBIO: el callback ahora incluye la dirección del remitente,
- * lo que permite al host saber desde qué IP llegó cada cliente.
- */
 public class UDPReceiver extends Thread {
 
     private DatagramSocket socket;
@@ -20,15 +15,21 @@ public class UDPReceiver extends Thread {
     public UDPReceiver(int listenPort, INetworkListener listener) {
         this.listener = listener;
         try {
-            this.socket  = new DatagramSocket(listenPort);
+            socket = new DatagramSocket(null); // sin bind inmediato
+            socket.setReuseAddress(true);      // permite reusar el puerto si quedó ocupado
+            socket.bind(new InetSocketAddress(listenPort));
             this.running = true;
+            System.out.println("Escuchando en puerto: " + listenPort);
         } catch (Exception e) {
+            System.err.println("ERROR: No se pudo abrir el puerto " + listenPort
+                    + ". Cierra otras instancias del juego y vuelve a intentar.");
             e.printStackTrace();
         }
     }
 
     @Override
     public void run() {
+        if (socket == null) return;
         byte[] buffer = new byte[65535];
 
         while (running) {
@@ -36,13 +37,11 @@ public class UDPReceiver extends Thread {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
-                // Deserializar objeto
                 ByteArrayInputStream bais =
                         new ByteArrayInputStream(packet.getData(), 0, packet.getLength());
                 ObjectInputStream ois = new ObjectInputStream(bais);
                 Object receivedObject  = ois.readObject();
 
-                // Dirección real del remitente
                 InetSocketAddress senderAddress =
                         new InetSocketAddress(packet.getAddress(), packet.getPort());
 
@@ -63,9 +62,6 @@ public class UDPReceiver extends Thread {
         if (socket != null && !socket.isClosed()) socket.close();
     }
 
-    /**
-     * CAMBIO: el callback ahora recibe también la dirección del remitente.
-     */
     public interface INetworkListener {
         void onDataReceived(Object data, InetSocketAddress senderAddress);
     }

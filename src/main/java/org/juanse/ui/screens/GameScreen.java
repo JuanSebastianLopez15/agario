@@ -103,11 +103,18 @@ public class GameScreen extends JPanel implements IGameEventListener {
     public void startLoop() {
         SoundManager.playBackground("juego.wav");
 
+        // Si es cliente, enviar un paquete inicial para que el host lo detecte
+        // y empiece a enviarle snapshots de inmediato
+        if (!isHost && sender != null && targetIp != null && !targetIp.isEmpty()) {
+            MouseInputDTO paqueteInicial = new MouseInputDTO(playerName, 600, 400);
+            sender.sendObject(paqueteInicial, targetIp, targetPort);
+            System.out.println("Cliente registrado, paquete inicial enviado al host.");
+        }
+
         gameLoop = new Timer(50, e -> {
             if (engine.isHost()) {
                 engine.update();
 
-                // HOST: enviar snapshot a TODOS los clientes conectados
                 if (sender != null && connectedClients != null) {
                     GameSnapshot snapshot = engine.createSnapshot();
                     for (InetSocketAddress client : connectedClients) {
