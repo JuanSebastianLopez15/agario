@@ -7,9 +7,9 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Regla 5 – Victoria por tiempo o eliminación:
- * - Si queda solo un jugador vivo → gana inmediatamente.
- * - Si se acaba el tiempo → gana quien tenga mayor masa total acumulada.
+ * Regla 5 – Victoria por tiempo o eliminación.
+ * CORRECCIÓN: la eliminación solo cuenta si ya hubo al menos 2 jugadores.
+ * Así el host puede esperar clientes sin que el juego termine solo.
  */
 public class VictoryRule implements IGameRule {
 
@@ -19,23 +19,23 @@ public class VictoryRule implements IGameRule {
 
         Set<String> activePlayers = getActivePlayers(engine);
 
-        // Condición 1: un solo jugador sobreviviente
-        if (activePlayers.size() == 1) {
+        // Necesitamos saber cuántos jugadores han sido registrados en total
+        int totalRegistered = engine.getScoreManager().getAllScores().size();
+
+        // Condición 1: eliminación — solo aplica si ya había al menos 2 jugadores
+        if (totalRegistered >= 2 && activePlayers.size() == 1) {
             String winner = activePlayers.iterator().next();
             engine.triggerGameOver(winner, "¡Eliminó a todos los rivales!");
             return;
         }
 
-        // Condición 2: tiempo agotado
-        if (engine.isTimeUp()) {
+        // Condición 2: tiempo agotado — aplica siempre que haya al menos 1 jugador
+        if (!activePlayers.isEmpty() && engine.isTimeUp()) {
             String winner = getWinnerByMass(engine, activePlayers);
             engine.triggerGameOver(winner, "¡Ganó por mayor masa al finalizar el tiempo!");
         }
     }
 
-    /**
-     * Obtiene los nombres únicos de jugadores que aún tienen al menos una célula viva.
-     */
     private Set<String> getActivePlayers(GameEngine engine) {
         return engine.getPlayers().stream()
                 .filter(PlayerCell::isAlive)
@@ -43,12 +43,8 @@ public class VictoryRule implements IGameRule {
                 .collect(Collectors.toSet());
     }
 
-    /**
-     * Suma la masa total de todas las células de cada jugador y devuelve el que más tiene.
-     */
     private String getWinnerByMass(GameEngine engine, Set<String> activePlayers) {
         Map<String, Double> totalMass = new HashMap<>();
-
         for (String name : activePlayers) totalMass.put(name, 0.0);
 
         for (PlayerCell cell : engine.getPlayers()) {
@@ -63,4 +59,3 @@ public class VictoryRule implements IGameRule {
                 .orElse("Empate");
     }
 }
-

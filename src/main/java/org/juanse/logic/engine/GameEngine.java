@@ -13,11 +13,12 @@ import org.juanse.logic.state.RunningState;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+
 /**
  * Núcleo del juego. Coordina entidades, reglas, estados y notificaciones.
  *
  * Principio S (SRP): coordina; no dibuja ni envía paquetes.
- * Principio D (DIP): depende de IGameRule y GameEventListener, no de concretos.
+ * Principio D (DIP): depende de IGameRule y IGameEventListener, no de concretos.
  *
  * Patrones:
  *  - Observer: notifica eventos a los oyentes registrados.
@@ -28,19 +29,22 @@ public class GameEngine {
 
     private final double mapWidth;
     private final double mapHeight;
-    private static final int MAX_PELLETS   = 80;
-    private static final int MAX_HAZARDS   = 8;
+    private static final int MAX_PELLETS      = 80;
+    private static final int MAX_HAZARDS      = 8;
     private static final long GAME_DURATION_MS = 3 * 60 * 1000L;
-    private boolean isHost = false;
-    //CopyOnWriteArrayList para que sean a prueba de choques de hilos
-    private final List<PlayerCell>        players     = new CopyOnWriteArrayList<>();
-    private final List<Pellet>            pellets     = new CopyOnWriteArrayList<>();
-    private final List<HazardBall>        hazardBalls = new CopyOnWriteArrayList<>();
+    private static final double INITIAL_MASS  = 50.0;
 
-    private final List<IGameRule>         rules       = new ArrayList<>();
+    private boolean isHost = false;
+
+    // CopyOnWriteArrayList para que sean a prueba de choques de hilos
+    private final List<PlayerCell>         players     = new CopyOnWriteArrayList<>();
+    private final List<Pellet>             pellets     = new CopyOnWriteArrayList<>();
+    private final List<HazardBall>         hazardBalls = new CopyOnWriteArrayList<>();
+
+    private final List<IGameRule>          rules       = new ArrayList<>();
     private final List<IGameEventListener> listeners   = new ArrayList<>();
 
-    private IGameState currentState;
+    private IGameState   currentState;
     private final ScoreManager scoreManager;
     private long startTime;
     private final Random random = new Random();
@@ -49,10 +53,9 @@ public class GameEngine {
         this.mapWidth  = mapWidth;
         this.mapHeight = mapHeight;
 
-        rules.add(new org.juanse.logic.rules.MovementRule());
-        rules.add(new BoundaryRule());
-        rules.add(new BoundaryRule());
+        // CORRECCIÓN: reglas sin duplicados
         rules.add(new MovementRule());
+        rules.add(new BoundaryRule());
         rules.add(new GrowthRule());
         rules.add(new SplitRule());
         rules.add(new AbsorptionRule());
@@ -165,12 +168,6 @@ public class GameEngine {
         Map<String, PlayerCell> currentPlayers = new HashMap<>();
         for (PlayerCell p : players) currentPlayers.put(p.getCellId(), p);
 
-        Map<String, Pellet> currentPellets = new HashMap<>();
-        for (Pellet p : pellets) currentPellets.put(p.getPelletId(), p);
-
-        Map<String, HazardBall> currentHazards = new HashMap<>();
-        for (HazardBall h : hazardBalls) currentHazards.put(h.getHazardId(), h);
-
         players.clear();
         for (PlayerDTO dto : snapshot.getPlayers()) {
             PlayerCell existing = currentPlayers.get(dto.getId());
@@ -203,8 +200,8 @@ public class GameEngine {
         return Math.max(0, GAME_DURATION_MS - elapsed);
     }
 
-    public boolean isTimeUp() { return getRemainingTimeMs() == 0; }
-    public boolean isGameOver() { return !currentState.isRunning(); }
+    public boolean isTimeUp()    { return getRemainingTimeMs() == 0; }
+    public boolean isGameOver()  { return !currentState.isRunning(); }
     public long getTotalElapsedMs() { return System.currentTimeMillis() - startTime; }
 
     public List<PlayerCell>  getPlayers()     { return players; }
@@ -217,13 +214,29 @@ public class GameEngine {
     public IGameState        getCurrentState() { return currentState; }
     public void setHost(boolean host)          { this.isHost = host; }
     public boolean isHost()                    { return isHost; }
-// servidor indica a donde se mueve el jugador
+
+    /**
+     * CORRECCIÓN: si el jugador no existe aún (cliente recién conectado),
+     * lo registra dinámicamente con una posición aleatoria.
+     * Así se eliminan los nombres hardcodeados "Jugador2", "Jugador3".
+     */
     public void updatePlayerTarget(String playerName, double targetX, double targetY) {
+        boolean found = false;
+
         for (PlayerCell p : players) {
             if (p.getOwnerName().equals(playerName)) {
                 p.setTarget(targetX, targetY);
+                found = true;
             }
+        }
+
+        // Jugador nuevo (cliente recién conectado): se agrega al juego en tiempo real
+        if (!found && currentState.isRunning()) {
+            double x = random.nextDouble() * (mapWidth  - 200) + 100;
+            double y = random.nextDouble() * (mapHeight - 200) + 100;
+            PlayerCell newCell = new PlayerCell(playerName, x, y, INITIAL_MASS);
+            newCell.setTarget(targetX, targetY);
+            addPlayer(newCell);
         }
     }
 }
-

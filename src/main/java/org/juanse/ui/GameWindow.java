@@ -1,70 +1,60 @@
 package org.juanse.ui;
 
 import org.juanse.logic.engine.GameEngine;
-import org.juanse.ui.screens.StartScreen;
-import org.juanse.ui.screens.EndScreen;
+import org.juanse.logic.engine.GameSnapshot;
+import org.juanse.udp.MouseInputDTO;
 import org.juanse.udp.UDPReceiver;
 import org.juanse.udp.UDPSender;
-import org.juanse.udp.MouseInputDTO;
-import org.juanse.logic.engine.GameSnapshot;
-import org.juanse.ui.screens.GameScreen;
 import org.juanse.ui.renderer.BackgroundPanel;
+import org.juanse.ui.screens.EndScreen;
+import org.juanse.ui.screens.GameScreen;
+import org.juanse.ui.screens.StartScreen;
 
 import javax.swing.*;
+import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Ventana principal del juego.
  * Coordina las pantallas usando JLayeredPane para efecto overlay.
  *
- * <p>Principio S (SRP): solo coordina pantallas y red.</p>
- * <p>Principio D (DIP): depende de abstracciones, no de implementaciones concretas.</p>
+ * Principio S (SRP): solo coordina pantallas y red.
+ * Principio D (DIP): depende de abstracciones, no de implementaciones concretas.
  */
 public class GameWindow extends JFrame {
 
-    /** Panel en capas que permite el efecto overlay. */
     private final JLayeredPane layeredPane;
 
-    /** Motor del juego. */
-    private GameEngine engine;
+    private GameEngine    engine;
+    private UDPSender     sender;
+    private UDPReceiver   receiver;
 
-    /** Sender UDP para enviar datos al otro jugador. */
-    private UDPSender sender;
-
-    /** Receiver UDP para recibir datos del otro jugador. */
-    private UDPReceiver receiver;
-
-    /** Nombre del jugador local. */
-    private String playerName;
-
-    /** Indica si este jugador es el host. */
+    private String  playerName;
     private boolean isHost;
+    private String  targetIp;
 
-    /** IP del host destino. */
-    private String targetIp;
-
-    /** Pantalla principal del juego. */
-    private GameScreen gameScreen;
-
-    /** Pantalla final del juego. */
-    private EndScreen endScreen;
-
-    /** Panel overlay de inicio. */
-    private JPanel startOverlay;
-
-    /** Panel overlay de fin. */
-    private JPanel endOverlay;
-
-    /** Panel de fondo decorativo. */
+    private GameScreen      gameScreen;
+    private EndScreen       endScreen;
+    private JPanel          startOverlay;
+    private JPanel          endOverlay;
     private BackgroundPanel backgroundPanel;
 
     /**
-     * Constructor de la ventana principal.
-     * Inicializa el JFrame y el JLayeredPane.
+     * Lista de clientes conectados (solo la usa el host).
+     * Cada entrada es la dirección IP:puerto desde donde llegó un MouseInputDTO.
+     * CopyOnWriteArrayList para seguridad entre hilos.
      */
+    private final List<InetSocketAddress> connectedClients = new CopyOnWriteArrayList<>();
+
+    /** Puerto fijo en el que el host escucha MouseInputDTOs de todos los clientes. */
+    private static final int HOST_LISTEN_PORT   = 5000;
+
+    /** Puerto fijo en el que cada cliente escucha los GameSnapshots del host. */
+    private static final int CLIENT_LISTEN_PORT = 5001;
+
     public GameWindow() {
         setTitle("Agar.io - Multijugador");
-        //setExtendedState(JFrame.MAXIMIZED_BOTH);
         this.setSize(1000, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
@@ -74,43 +64,27 @@ public class GameWindow extends JFrame {
         setContentPane(layeredPane);
     }
 
-    /**
-     * Sobrescribe setVisible para inicializar las capas cuando la ventana se muestra.
-     *
-     * @param visible true para mostrar la ventana
-     */
     @Override
     public void setVisible(boolean visible) {
         super.setVisible(visible);
-        if (visible) {
-            setupLayers();
-        }
+        if (visible) setupLayers();
     }
 
-    /**
-     * Configura las capas del juego.
-     * Capa 0: fondo decorativo.
-     * Capa 1: pantalla del juego.
-     * Capa 2: overlay de inicio.
-     */
     private void setupLayers() {
         int w = getWidth();
         int h = getHeight();
 
-        // Capa 0: fondo decorativo con células y pellets
         backgroundPanel = new BackgroundPanel();
         backgroundPanel.setBounds(0, 0, w, h);
         layeredPane.add(backgroundPanel, JLayeredPane.DEFAULT_LAYER);
 
-        // Capa 1: pantalla del juego (oculta hasta que se le dé jugar)
-        engine = new GameEngine(1200, 800);
+        engine     = new GameEngine(1200, 800);
         gameScreen = new GameScreen(this, engine, "", null, "", 0);
         JPanel gamePanel = gameScreen.getMainPanel();
         gamePanel.setBounds(0, 0, w, h);
         gamePanel.setVisible(false);
         layeredPane.add(gamePanel, JLayeredPane.DEFAULT_LAYER);
 
-        // Capa 2: overlay de inicio encima del fondo
         StartScreen startScreen = new StartScreen(this);
         startOverlay = startScreen.getMainPanel();
         int ow = 450, oh = 350;
@@ -119,66 +93,89 @@ public class GameWindow extends JFrame {
     }
 
     /**
-     * Inicia el juego con los datos del jugador.
-     * Configura la red UDP y arranca el game loop.
+     * Inicia el juego.
      *
-     * @param nombre  nombre del jugador
-     * @param ip      IP del host
-     * @param isHost  true si este jugador es el host
+     * HOST:
+     *   - Escucha en HOST_LISTEN_PORT (5000) los MouseInputDTO de TODOS los clientes.
+     *   - Cuando llega un cliente nuevo, guarda su IP y le envía snapshots al puerto
+     *     CLIENT_LISTEN_PORT (5001).
+     *
+     * CLIENTE:
+     *   - Escucha en CLIENT_LISTEN_PORT (5001) los GameSnapshot del host.
+     *   - Envía su mouse al HOST_LISTEN_PORT (5000) de la IP del host.
      */
     public void startGame(String nombre, String ip, boolean isHost) {
         this.playerName = nombre;
-        this.isHost = isHost;
-        this.targetIp = (ip == null || ip.trim().isEmpty()) ? "127.0.0.1" : ip;
-
-        int listenPort = isHost ? 5000 : 5001;
-        int targetPort = isHost ? 5001 : 5000;
+        this.isHost     = isHost;
+        this.targetIp   = (ip == null || ip.trim().isEmpty()) ? "127.0.0.1" : ip.trim();
 
         engine.setHost(isHost);
         sender = new UDPSender();
 
-        receiver = new UDPReceiver(listenPort, data -> {
-            // Usamos invokeLater para que los datos en red no choquen con el dibujado de la pantalla
-            javax.swing.SwingUtilities.invokeLater(() -> {
-                if (isHost && data instanceof MouseInputDTO) {
-                    MouseInputDTO mouse = (MouseInputDTO) data;
-                    engine.updatePlayerTarget(mouse.getPlayerName(), mouse.getTargetX(), mouse.getTargetY());
-                } else if (!isHost && data instanceof GameSnapshot) {
-                    engine.applySnapshot((GameSnapshot) data);
-                }
+        if (isHost) {
+            // El host escucha en 5000. Acepta MouseInputDTO de cualquier cliente.
+            receiver = new UDPReceiver(HOST_LISTEN_PORT, (data, senderAddress) -> {
+                SwingUtilities.invokeLater(() -> {
+                    if (data instanceof MouseInputDTO) {
+                        MouseInputDTO mouse = (MouseInputDTO) data;
+
+                        // Registrar cliente nuevo si no está en la lista
+                        InetSocketAddress clientAddr =
+                                new InetSocketAddress(senderAddress.getAddress(), CLIENT_LISTEN_PORT);
+                        if (!connectedClients.contains(clientAddr)) {
+                            connectedClients.add(clientAddr);
+                            System.out.println("Nuevo cliente conectado: " + clientAddr);
+                        }
+
+                        // Actualizar posición del mouse del cliente en el motor
+                        engine.updatePlayerTarget(
+                                mouse.getPlayerName(),
+                                mouse.getTargetX(),
+                                mouse.getTargetY()
+                        );
+                    }
+                });
             });
-        });
+
+        } else {
+            // El cliente escucha en 5001 los snapshots del host.
+            receiver = new UDPReceiver(CLIENT_LISTEN_PORT, (data, senderAddress) -> {
+                SwingUtilities.invokeLater(() -> {
+                    if (data instanceof GameSnapshot) {
+                        engine.applySnapshot((GameSnapshot) data);
+                    }
+                });
+            });
+        }
+
         receiver.start();
 
         if (isHost) {
-            engine.startGame(List.of(nombre, "Jugador2", "Jugador3"), 50.0);
+            engine.startGame(List.of(nombre), 50.0);
         }
 
         gameScreen.setPlayerName(nombre);
         gameScreen.setSender(sender);
+        // El cliente apunta al host; el host usará connectedClients para enviar a todos
         gameScreen.setTargetIp(this.targetIp);
-        gameScreen.setTargetPort(targetPort);
+        gameScreen.setTargetPort(isHost ? CLIENT_LISTEN_PORT : HOST_LISTEN_PORT);
+        gameScreen.setConnectedClients(connectedClients); // solo lo usa el host
+        gameScreen.setHost(isHost);
 
         layeredPane.remove(backgroundPanel);
         layeredPane.remove(startOverlay);
-
         gameScreen.getMainPanel().setVisible(true);
         layeredPane.revalidate();
         layeredPane.repaint();
 
         gameScreen.startLoop();
     }
-    /**
-     * Muestra la pantalla final con los resultados del juego.
-     *
-     * @param winner    nombre del ganador
-     * @param totalTime tiempo total de juego en milisegundos
-     */
+
     public void showEndScreen(String winner, long totalTime) {
         int w = getWidth();
         int h = getHeight();
 
-        endScreen = new EndScreen(this);
+        endScreen  = new EndScreen(this);
         endOverlay = endScreen.getMainPanel();
 
         int ow = 550, oh = 450;
@@ -190,9 +187,6 @@ public class GameWindow extends JFrame {
         endScreen.show(winner, engine.getScoreManager().getAllScores(), totalTime);
     }
 
-    /**
-     * Lanza la ventana principal del juego.
-     */
     public void launch() {
         setVisible(true);
     }
