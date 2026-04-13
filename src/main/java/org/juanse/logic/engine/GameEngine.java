@@ -25,13 +25,14 @@ public class GameEngine {
 
     private boolean isHost = false;
     private long clientRemainingTimeMs = GAME_DURATION_MS;
-
-    // Nueva variable para congelar el tiempo exacto al terminar
     private long finalElapsedTimeMs = 0;
 
     private final List<PlayerCell>         players     = new CopyOnWriteArrayList<>();
     private final List<Pellet>             pellets     = new CopyOnWriteArrayList<>();
     private final List<HazardBall>         hazardBalls = new CopyOnWriteArrayList<>();
+
+    // Registro de jugadores que han perdido todas sus células
+    private final Set<String>              deadPlayers = new HashSet<>();
 
     private final List<IGameRule>          rules       = new ArrayList<>();
     private final List<IGameEventListener> listeners   = new ArrayList<>();
@@ -60,7 +61,8 @@ public class GameEngine {
 
     public void startGame(List<String> playerNames, double initialMass) {
         startTime = System.currentTimeMillis();
-        finalElapsedTimeMs = 0; // Reiniciamos el tiempo final
+        finalElapsedTimeMs = 0;
+        deadPlayers.clear(); // Limpiamos el registro al iniciar una nueva partida
 
         for (String name : playerNames) {
             double x = random.nextDouble() * (mapWidth  - 200) + 100;
@@ -100,6 +102,20 @@ public class GameEngine {
 
     public void removePlayer(PlayerCell cell) {
         players.remove(cell);
+
+        // Verificamos si al jugador le quedan más células vivas
+        boolean isCompletelyDead = true;
+        for (PlayerCell p : players) {
+            if (p.getOwnerName().equals(cell.getOwnerName())) {
+                isCompletelyDead = false;
+                break;
+            }
+        }
+
+        // Si no le quedan células, lo anotamos en la lista de muertos
+        if (isCompletelyDead) {
+            deadPlayers.add(cell.getOwnerName());
+        }
     }
 
     public void removePellet(Pellet pellet) {
@@ -107,7 +123,6 @@ public class GameEngine {
     }
 
     public void triggerGameOver(String winnerName, String reason) {
-        // Congelamos el tiempo exacto en el Host cuando alguien gana
         finalElapsedTimeMs = System.currentTimeMillis() - startTime;
         currentState = new GameOverState(winnerName, reason);
         notifyGameOver(winnerName, reason);
@@ -197,7 +212,6 @@ public class GameEngine {
 
         this.clientRemainingTimeMs = snapshot.getRemainingTimeMs();
 
-        // Congelamos el tiempo exacto en el Cliente cuando detecta el fin de juego
         if (snapshot.getGameStateName().equals("FIN DEL JUEGO") && currentState.isRunning()) {
             this.finalElapsedTimeMs = GAME_DURATION_MS - snapshot.getRemainingTimeMs();
             this.currentState = new GameOverState(scoreManager.getLeader(), "Fin de partida");
@@ -244,7 +258,6 @@ public class GameEngine {
     public long getRemainingTimeMs() {
         if (!isHost) return clientRemainingTimeMs;
 
-        // Si el juego ya terminó, devolver el tiempo calculado basado en el momento congelado
         if (!currentState.isRunning() && finalElapsedTimeMs > 0) {
             return Math.max(0, GAME_DURATION_MS - finalElapsedTimeMs);
         }
@@ -257,7 +270,6 @@ public class GameEngine {
     public boolean isGameOver()  { return !currentState.isRunning(); }
 
     public long getTotalElapsedMs() {
-        // Si el juego terminó, devolver el tiempo congelado (funciona igual en Host y Cliente)
         if (!currentState.isRunning() && finalElapsedTimeMs > 0) {
             return finalElapsedTimeMs;
         }
@@ -286,7 +298,8 @@ public class GameEngine {
             }
         }
 
-        if (!found && currentState.isRunning()) {
+        // Si no lo encuentra, el juego corre, Y NO ESTÁ MUERTO, se crea
+        if (!found && currentState.isRunning() && !deadPlayers.contains(playerName)) {
             double x = random.nextDouble() * (mapWidth  - 200) + 100;
             double y = random.nextDouble() * (mapHeight - 200) + 100;
             PlayerCell newCell = new PlayerCell(playerName, x, y, INITIAL_MASS);
