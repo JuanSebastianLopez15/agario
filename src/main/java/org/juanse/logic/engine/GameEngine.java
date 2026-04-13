@@ -14,17 +14,6 @@ import org.juanse.logic.state.RunningState;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/**
- * Núcleo del juego. Coordina entidades, reglas, estados y notificaciones.
- *
- * Principio S (SRP): coordina; no dibuja ni envía paquetes.
- * Principio D (DIP): depende de IGameRule y IGameEventListener, no de concretos.
- *
- * Patrones:
- *  - Observer: notifica eventos a los oyentes registrados.
- *  - Strategy: delega la lógica a reglas (IGameRule) intercambiables.
- *  - State:    delega el comportamiento del tick al GameState actual.
- */
 public class GameEngine {
 
     private final double mapWidth;
@@ -35,8 +24,8 @@ public class GameEngine {
     private static final double INITIAL_MASS  = 50.0;
 
     private boolean isHost = false;
+    private long clientRemainingTimeMs = GAME_DURATION_MS;
 
-    // CopyOnWriteArrayList para que sean a prueba de choques de hilos
     private final List<PlayerCell>         players     = new CopyOnWriteArrayList<>();
     private final List<Pellet>             pellets     = new CopyOnWriteArrayList<>();
     private final List<HazardBall>         hazardBalls = new CopyOnWriteArrayList<>();
@@ -53,7 +42,6 @@ public class GameEngine {
         this.mapWidth  = mapWidth;
         this.mapHeight = mapHeight;
 
-        // CORRECCIÓN: reglas sin duplicados
         rules.add(new MovementRule());
         rules.add(new BoundaryRule());
         rules.add(new GrowthRule());
@@ -192,9 +180,16 @@ public class GameEngine {
         }
 
         scoreManager.setScores(snapshot.getScores());
+
+        this.clientRemainingTimeMs = snapshot.getRemainingTimeMs();
+
+        if (snapshot.getGameStateName().equals("FIN DEL JUEGO") && currentState.isRunning()) {
+            this.currentState = new GameOverState(scoreManager.getLeader(), "Fin de partida");
+        }
     }
 
     public long getRemainingTimeMs() {
+        if (!isHost) return clientRemainingTimeMs;
         if (!currentState.isRunning()) return 0;
         long elapsed = System.currentTimeMillis() - startTime;
         return Math.max(0, GAME_DURATION_MS - elapsed);
@@ -202,7 +197,11 @@ public class GameEngine {
 
     public boolean isTimeUp()    { return getRemainingTimeMs() == 0; }
     public boolean isGameOver()  { return !currentState.isRunning(); }
-    public long getTotalElapsedMs() { return System.currentTimeMillis() - startTime; }
+
+    public long getTotalElapsedMs() {
+        if (!isHost) return GAME_DURATION_MS - clientRemainingTimeMs;
+        return System.currentTimeMillis() - startTime;
+    }
 
     public List<PlayerCell>  getPlayers()     { return players; }
     public List<Pellet>      getPellets()      { return pellets; }
@@ -215,11 +214,6 @@ public class GameEngine {
     public void setHost(boolean host)          { this.isHost = host; }
     public boolean isHost()                    { return isHost; }
 
-    /**
-     * CORRECCIÓN: si el jugador no existe aún (cliente recién conectado),
-     * lo registra dinámicamente con una posición aleatoria.
-     * Así se eliminan los nombres hardcodeados "Jugador2", "Jugador3".
-     */
     public void updatePlayerTarget(String playerName, double targetX, double targetY) {
         boolean found = false;
 
@@ -230,7 +224,6 @@ public class GameEngine {
             }
         }
 
-        // Jugador nuevo (cliente recién conectado): se agrega al juego en tiempo real
         if (!found && currentState.isRunning()) {
             double x = random.nextDouble() * (mapWidth  - 200) + 100;
             double y = random.nextDouble() * (mapHeight - 200) + 100;
