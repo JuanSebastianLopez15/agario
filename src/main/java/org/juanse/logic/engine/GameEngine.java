@@ -154,9 +154,12 @@ public class GameEngine {
 
     public void applySnapshot(GameSnapshot snapshot) {
 
-        int oldPlayerCells = this.players.size();
-        double oldTotalMass = 0.0;
-        for (PlayerCell p : this.players) oldTotalMass += p.getMass();
+        Map<String, Double> oldMasses = new HashMap<>();
+        Map<String, Integer> oldCellCounts = new HashMap<>();
+        for (PlayerCell p : this.players) {
+            oldMasses.put(p.getOwnerName(), oldMasses.getOrDefault(p.getOwnerName(), 0.0) + p.getMass());
+            oldCellCounts.put(p.getOwnerName(), oldCellCounts.getOrDefault(p.getOwnerName(), 0) + 1);
+        }
 
         Map<String, PlayerCell> currentPlayers = new HashMap<>();
         for (PlayerCell p : players) currentPlayers.put(p.getCellId(), p);
@@ -193,16 +196,39 @@ public class GameEngine {
         }
 
         if (!isHost) {
-            int newPlayerCells = this.players.size();
-            double newTotalMass = 0.0;
-            for (PlayerCell p : this.players) newTotalMass += p.getMass();
+            Map<String, Double> newMasses = new HashMap<>();
+            Map<String, Integer> newCellCounts = new HashMap<>();
 
-            if (newPlayerCells < oldPlayerCells) {
-                notifyAbsorption(null, null);
-            } else if (newPlayerCells > oldPlayerCells) {
-                notifySplit(null, null);
-            } else if (newTotalMass > oldTotalMass) {
-                notifyPelletEaten(null, null);
+            for (PlayerCell p : this.players) {
+                newMasses.put(p.getOwnerName(), newMasses.getOrDefault(p.getOwnerName(), 0.0) + p.getMass());
+                newCellCounts.put(p.getOwnerName(), newCellCounts.getOrDefault(p.getOwnerName(), 0) + 1);
+            }
+
+            for (String owner : newMasses.keySet()) {
+                double oldM = oldMasses.getOrDefault(owner, 0.0);
+                double newM = newMasses.get(owner);
+                int oldC = oldCellCounts.getOrDefault(owner, 0);
+                int newC = newCellCounts.get(owner);
+
+                PlayerCell rep = null;
+                for (PlayerCell p : this.players) {
+                    if (p.getOwnerName().equals(owner)) { rep = p; break; }
+                }
+
+                if (newC > oldC) {
+                    notifySplit(rep, rep);
+                } else if (newC < oldC) {
+                    notifyAbsorption(rep, rep);
+                } else if (newM > oldM) {
+                    notifyPelletEaten(rep, new Pellet(0, 0));
+                }
+            }
+
+            for (String oldOwner : oldCellCounts.keySet()) {
+                if (!newCellCounts.containsKey(oldOwner)) {
+                    PlayerCell dummy = new PlayerCell(oldOwner, 0, 0, 0);
+                    notifyAbsorption(dummy, dummy);
+                }
             }
         }
     }

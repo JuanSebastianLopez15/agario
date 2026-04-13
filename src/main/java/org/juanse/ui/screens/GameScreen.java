@@ -168,17 +168,27 @@ public class GameScreen extends JPanel implements IGameEventListener {
 
     @Override
     public void onAbsorption(PlayerCell absorber, PlayerCell absorbed) {
-        SoundManager.playEffect("absorption.wav");
+        // Solo suena si el jugador local fue el que absorbió o el que fue absorbido
+        if ((absorber != null && absorber.getOwnerName().equals(this.playerName)) ||
+                (absorbed != null && absorbed.getOwnerName().equals(this.playerName))) {
+            SoundManager.playEffect("absorption.wav");
+        }
     }
 
     @Override
     public void onSplit(PlayerCell original, PlayerCell newCell) {
-        SoundManager.playEffect("split.wav");
+        // Solo suena si el jugador local se dividió
+        if (original != null && original.getOwnerName().equals(this.playerName)) {
+            SoundManager.playEffect("split.wav");
+        }
     }
 
     @Override
     public void onPelletEaten(PlayerCell player, Pellet pellet) {
-        SoundManager.playEffect("eat_pellet.wav");
+        // Solo suena si el jugador local se comió el pellet
+        if (player != null && player.getOwnerName().equals(this.playerName)) {
+            SoundManager.playEffect("eat_pellet.wav");
+        }
     }
 
     @Override
