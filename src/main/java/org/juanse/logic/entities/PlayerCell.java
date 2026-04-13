@@ -21,8 +21,8 @@ public class PlayerCell extends GameEntity {
 
     // Variables para la aceleración (Dash)
     private long lastDashTime = 0;
-    private static final long DASH_COOLDOWN_MS = 15000; // 15 segundos
-    private static final long DASH_DURATION_MS = 2000;  // 2 segundos de aceleración
+    private static final long DASH_COOLDOWN_MS = 10000; // 15 segundos
+    private static final long DASH_DURATION_MS = 4000;  // 2 segundos de aceleración
 
     public PlayerCell(String ownerName, double x, double y, double initialMass) {
         super(x, y, initialMass);
