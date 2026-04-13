@@ -31,9 +31,7 @@ public class GameEngine {
     private final List<Pellet>             pellets     = new CopyOnWriteArrayList<>();
     private final List<HazardBall>         hazardBalls = new CopyOnWriteArrayList<>();
 
-    // Registro de jugadores que han perdido todas sus células
     private final Set<String>              deadPlayers = new HashSet<>();
-
     private final List<IGameRule>          rules       = new ArrayList<>();
     private final List<IGameEventListener> listeners   = new ArrayList<>();
 
@@ -62,7 +60,7 @@ public class GameEngine {
     public void startGame(List<String> playerNames, double initialMass) {
         startTime = System.currentTimeMillis();
         finalElapsedTimeMs = 0;
-        deadPlayers.clear(); // Limpiamos el registro al iniciar una nueva partida
+        deadPlayers.clear();
 
         for (String name : playerNames) {
             double x = random.nextDouble() * (mapWidth  - 200) + 100;
@@ -103,7 +101,6 @@ public class GameEngine {
     public void removePlayer(PlayerCell cell) {
         players.remove(cell);
 
-        // Verificamos si al jugador le quedan más células vivas
         boolean isCompletelyDead = true;
         for (PlayerCell p : players) {
             if (p.getOwnerName().equals(cell.getOwnerName())) {
@@ -112,7 +109,6 @@ public class GameEngine {
             }
         }
 
-        // Si no le quedan células, lo anotamos en la lista de muertos
         if (isCompletelyDead) {
             deadPlayers.add(cell.getOwnerName());
         }
@@ -288,17 +284,19 @@ public class GameEngine {
     public void setHost(boolean host)          { this.isHost = host; }
     public boolean isHost()                    { return isHost; }
 
-    public void updatePlayerTarget(String playerName, double targetX, double targetY) {
+    public void updatePlayerTarget(String playerName, double targetX, double targetY, boolean dashPressed) {
         boolean found = false;
 
         for (PlayerCell p : players) {
             if (p.getOwnerName().equals(playerName)) {
                 p.setTarget(targetX, targetY);
+                if (dashPressed) {
+                    p.tryDash();
+                }
                 found = true;
             }
         }
 
-        // Si no lo encuentra, el juego corre, Y NO ESTÁ MUERTO, se crea
         if (!found && currentState.isRunning() && !deadPlayers.contains(playerName)) {
             double x = random.nextDouble() * (mapWidth  - 200) + 100;
             double y = random.nextDouble() * (mapHeight - 200) + 100;

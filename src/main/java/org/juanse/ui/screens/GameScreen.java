@@ -18,11 +18,6 @@ import java.awt.event.MouseMotionAdapter;
 import java.net.InetSocketAddress;
 import java.util.List;
 
-/**
- * Pantalla principal del juego.
- * Principio S (SRP): solo muestra el juego y envía input del mouse.
- * Patrón Observer: implementa IGameEventListener.
- */
 public class GameScreen extends JPanel implements IGameEventListener {
 
     private JPanel mainPanel;
@@ -38,16 +33,17 @@ public class GameScreen extends JPanel implements IGameEventListener {
     private int    targetPort;
     private boolean isHost;
 
-    /**
-     * Lista de clientes a los que el host debe enviar el snapshot.
-     * Vacía si este nodo es cliente.
-     */
     private List<InetSocketAddress> connectedClients;
 
     private GamePanel canvas;
     private Timer     gameLoop;
     private JLabel    timerLabel;
     private JLabel    scoresLabel;
+
+    // Variables de control de input
+    private boolean spacePressed = false;
+    private int lastMouseX = 600;
+    private int lastMouseY = 400;
 
     public GameScreen(GameWindow gameWindow, GameEngine engine, String playerName,
                       UDPSender sender, String targetIp, int targetPort) {
@@ -83,30 +79,54 @@ public class GameScreen extends JPanel implements IGameEventListener {
         gamePanel.setLayout(new BorderLayout());
         gamePanel.add(canvas, BorderLayout.CENTER);
 
+        // Para que el JPanel escuche teclas, debe tener el foco
+        canvas.setFocusable(true);
+        canvas.requestFocusInWindow();
+
+        // Solicitar foco si el mouse entra al panel (para evitar perder los controles)
+        canvas.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                canvas.requestFocusInWindow();
+            }
+        });
+
         canvas.addMouseMotionListener(new MouseMotionAdapter() {
             @Override
             public void mouseMoved(MouseEvent e) {
-                // Actualizar target local siempre
-                engine.getPlayers().stream()
-                        .filter(p -> p.getOwnerName().equals(playerName))
-                        .forEach(p -> p.setTarget(e.getX(), e.getY()));
+                lastMouseX = e.getX();
+                lastMouseY = e.getY();
+                sendInput();
+            }
+        });
 
-                // Si es cliente, enviar mouse al host
-                if (!isHost && sender != null && targetIp != null && !targetIp.isEmpty()) {
-                    MouseInputDTO mouse = new MouseInputDTO(playerName, e.getX(), e.getY());
-                    sender.sendObject(mouse, targetIp, targetPort);
+        // Escuchar la tecla Espacio
+        canvas.addKeyListener(new java.awt.event.KeyAdapter() {
+            @Override
+            public void keyPressed(java.awt.event.KeyEvent e) {
+                if (e.getKeyCode() == java.awt.event.KeyEvent.VK_SPACE) {
+                    spacePressed = true;
+                    sendInput();
                 }
             }
         });
     }
 
+    private void sendInput() {
+        if (engine.isHost()) {
+            engine.updatePlayerTarget(playerName, lastMouseX, lastMouseY, spacePressed);
+            spacePressed = false;
+        } else if (sender != null && targetIp != null && !targetIp.isEmpty()) {
+            MouseInputDTO mouse = new MouseInputDTO(playerName, lastMouseX, lastMouseY, spacePressed);
+            sender.sendObject(mouse, targetIp, targetPort);
+            spacePressed = false;
+        }
+    }
+
     public void startLoop() {
         SoundManager.playBackground("juego.wav");
 
-        // Si es cliente, enviar un paquete inicial para que el host lo detecte
-        // y empiece a enviarle snapshots de inmediato
         if (!isHost && sender != null && targetIp != null && !targetIp.isEmpty()) {
-            MouseInputDTO paqueteInicial = new MouseInputDTO(playerName, 600, 400);
+            MouseInputDTO paqueteInicial = new MouseInputDTO(playerName, 600, 400, false);
             sender.sendObject(paqueteInicial, targetIp, targetPort);
             System.out.println("Cliente registrado, paquete inicial enviado al host.");
         }
@@ -151,8 +171,6 @@ public class GameScreen extends JPanel implements IGameEventListener {
         scoresLabel.setText(sb.toString());
     }
 
-    // ── Setters ──────────────────────────────────────────────────────────────
-
     public void setPlayerName(String playerName)   { this.playerName = playerName; }
     public void setSender(UDPSender sender)         { this.sender = sender; }
     public void setTargetIp(String targetIp)        { this.targetIp = targetIp; }
@@ -164,11 +182,8 @@ public class GameScreen extends JPanel implements IGameEventListener {
 
     public JPanel getMainPanel() { return mainPanel; }
 
-    // ── Observer ─────────────────────────────────────────────────────────────
-
     @Override
     public void onAbsorption(PlayerCell absorber, PlayerCell absorbed) {
-        // Solo suena si el jugador local fue el que absorbió o el que fue absorbido
         if ((absorber != null && absorber.getOwnerName().equals(this.playerName)) ||
                 (absorbed != null && absorbed.getOwnerName().equals(this.playerName))) {
             SoundManager.playEffect("absorption.wav");
@@ -177,7 +192,6 @@ public class GameScreen extends JPanel implements IGameEventListener {
 
     @Override
     public void onSplit(PlayerCell original, PlayerCell newCell) {
-        // Solo suena si el jugador local se dividió
         if (original != null && original.getOwnerName().equals(this.playerName)) {
             SoundManager.playEffect("split.wav");
         }
@@ -185,7 +199,6 @@ public class GameScreen extends JPanel implements IGameEventListener {
 
     @Override
     public void onPelletEaten(PlayerCell player, Pellet pellet) {
-        // Solo suena si el jugador local se comió el pellet
         if (player != null && player.getOwnerName().equals(this.playerName)) {
             SoundManager.playEffect("eat_pellet.wav");
         }

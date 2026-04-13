@@ -15,13 +15,6 @@ import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/**
- * Ventana principal del juego.
- * Coordina las pantallas usando JLayeredPane para efecto overlay.
- *
- * Principio S (SRP): solo coordina pantallas y red.
- * Principio D (DIP): depende de abstracciones, no de implementaciones concretas.
- */
 public class GameWindow extends JFrame {
 
     private final JLayeredPane layeredPane;
@@ -40,17 +33,9 @@ public class GameWindow extends JFrame {
     private JPanel          endOverlay;
     private BackgroundPanel backgroundPanel;
 
-    /**
-     * Lista de clientes conectados (solo la usa el host).
-     * Cada entrada es la dirección IP:puerto desde donde llegó un MouseInputDTO.
-     * CopyOnWriteArrayList para seguridad entre hilos.
-     */
     private final List<InetSocketAddress> connectedClients = new CopyOnWriteArrayList<>();
 
-    /** Puerto fijo en el que el host escucha MouseInputDTOs de todos los clientes. */
     private static final int HOST_LISTEN_PORT   = 5000;
-
-    /** Puerto fijo en el que cada cliente escucha los GameSnapshots del host. */
     private static final int CLIENT_LISTEN_PORT = 5001;
 
     public GameWindow() {
@@ -92,18 +77,6 @@ public class GameWindow extends JFrame {
         layeredPane.add(startOverlay, JLayeredPane.PALETTE_LAYER);
     }
 
-    /**
-     * Inicia el juego.
-     *
-     * HOST:
-     * - Escucha en HOST_LISTEN_PORT (5000) los MouseInputDTO de TODOS los clientes.
-     * - Cuando llega un cliente nuevo, guarda su IP y le envía snapshots al puerto
-     * CLIENT_LISTEN_PORT (5001).
-     *
-     * CLIENTE:
-     * - Escucha en CLIENT_LISTEN_PORT (5001) los GameSnapshot del host.
-     * - Envía su mouse al HOST_LISTEN_PORT (5000) de la IP del host.
-     */
     public void startGame(String nombre, String ip, boolean isHost) {
         this.playerName = nombre;
         this.isHost     = isHost;
@@ -128,7 +101,8 @@ public class GameWindow extends JFrame {
                         engine.updatePlayerTarget(
                                 mouse.getPlayerName(),
                                 mouse.getTargetX(),
-                                mouse.getTargetY()
+                                mouse.getTargetY(),
+                                mouse.isDashPressed() // <- Pasamos el estado del Dash
                         );
                     }
                 });
