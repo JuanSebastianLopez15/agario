@@ -26,6 +26,9 @@ public class GameEngine {
     private boolean isHost = false;
     private long clientRemainingTimeMs = GAME_DURATION_MS;
 
+    // Nueva variable para congelar el tiempo exacto al terminar
+    private long finalElapsedTimeMs = 0;
+
     private final List<PlayerCell>         players     = new CopyOnWriteArrayList<>();
     private final List<Pellet>             pellets     = new CopyOnWriteArrayList<>();
     private final List<HazardBall>         hazardBalls = new CopyOnWriteArrayList<>();
@@ -57,6 +60,7 @@ public class GameEngine {
 
     public void startGame(List<String> playerNames, double initialMass) {
         startTime = System.currentTimeMillis();
+        finalElapsedTimeMs = 0; // Reiniciamos el tiempo final
 
         for (String name : playerNames) {
             double x = random.nextDouble() * (mapWidth  - 200) + 100;
@@ -103,6 +107,8 @@ public class GameEngine {
     }
 
     public void triggerGameOver(String winnerName, String reason) {
+        // Congelamos el tiempo exacto en el Host cuando alguien gana
+        finalElapsedTimeMs = System.currentTimeMillis() - startTime;
         currentState = new GameOverState(winnerName, reason);
         notifyGameOver(winnerName, reason);
     }
@@ -191,7 +197,9 @@ public class GameEngine {
 
         this.clientRemainingTimeMs = snapshot.getRemainingTimeMs();
 
+        // Congelamos el tiempo exacto en el Cliente cuando detecta el fin de juego
         if (snapshot.getGameStateName().equals("FIN DEL JUEGO") && currentState.isRunning()) {
+            this.finalElapsedTimeMs = GAME_DURATION_MS - snapshot.getRemainingTimeMs();
             this.currentState = new GameOverState(scoreManager.getLeader(), "Fin de partida");
         }
 
@@ -235,7 +243,12 @@ public class GameEngine {
 
     public long getRemainingTimeMs() {
         if (!isHost) return clientRemainingTimeMs;
-        if (!currentState.isRunning()) return 0;
+
+        // Si el juego ya terminó, devolver el tiempo calculado basado en el momento congelado
+        if (!currentState.isRunning() && finalElapsedTimeMs > 0) {
+            return Math.max(0, GAME_DURATION_MS - finalElapsedTimeMs);
+        }
+
         long elapsed = System.currentTimeMillis() - startTime;
         return Math.max(0, GAME_DURATION_MS - elapsed);
     }
@@ -244,11 +257,15 @@ public class GameEngine {
     public boolean isGameOver()  { return !currentState.isRunning(); }
 
     public long getTotalElapsedMs() {
+        // Si el juego terminó, devolver el tiempo congelado (funciona igual en Host y Cliente)
+        if (!currentState.isRunning() && finalElapsedTimeMs > 0) {
+            return finalElapsedTimeMs;
+        }
         if (!isHost) return GAME_DURATION_MS - clientRemainingTimeMs;
         return System.currentTimeMillis() - startTime;
     }
 
-    public List<PlayerCell>  getPlayers()     { return players; }
+    public List<PlayerCell>  getPlayers()      { return players; }
     public List<Pellet>      getPellets()      { return pellets; }
     public List<HazardBall>  getHazardBalls()  { return hazardBalls; }
     public List<IGameRule>   getRules()        { return rules; }
