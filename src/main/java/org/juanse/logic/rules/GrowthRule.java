@@ -8,11 +8,23 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Regla 2 – Crecimiento por pellets:
- * Comer un pellet aumenta la masa del jugador en la masa fija del pellet.
+ * Regla de crecimiento por pellets.
+ * Cuando una celula colisiona con un pellet, lo consume y aumenta su masa
+ * en la cantidad fija de masa del pellet.
+ * Luego se genera un nuevo pellet para mantener la densidad del mapa.
+ *
+ * <p>Principio S (SRP): solo aplica la logica de crecimiento por pellets.</p>
+ * <p>Principio O (OCP): implementa {@link IGameRule} sin modificar el motor.</p>
  */
 public class GrowthRule implements IGameRule {
 
+    /**
+     * Aplica la regla de crecimiento en cada tick del juego.
+     * Recorre todas las celulas vivas y verifica si colisionan con pellets.
+     * Por cada pellet consumido se genera uno nuevo en posicion aleatoria.
+     *
+     * @param engine motor del juego con acceso al estado completo
+     */
     @Override
     public void apply(GameEngine engine) {
         List<Pellet> consumed = new ArrayList<>();
@@ -37,4 +49,3 @@ public class GrowthRule implements IGameRule {
         consumed.forEach(p -> engine.spawnPellet());
     }
 }
-
