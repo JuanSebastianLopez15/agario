@@ -37,4 +37,3 @@ public class SplitRule implements IGameRule {
         toAdd.forEach(engine::addPlayer);
     }
 }
-

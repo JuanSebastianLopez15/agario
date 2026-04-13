@@ -26,8 +26,15 @@ public class AbsorptionRule implements IGameRule {
                 if (attacker == target) continue;
                 if (!target.isAlive() || toRemove.contains(target)) continue;
 
-                // No puede comerse a su propia célula (tras un split)
-                if (attacker.getOwnerName().equals(target.getOwnerName())) continue;
+                if (attacker.getOwnerName().equals(target.getOwnerName())) {
+                    if (attacker.canMergeWith(target) && attacker.collidesWith(target)) {
+                        attacker.growBy(target.getMass());
+                        target.kill();
+                        toRemove.add(target);
+                        engine.notifyAbsorption(attacker, target);
+                    }
+                    continue;
+                }
 
                 if (canAbsorb(attacker, target) && attacker.collidesWith(target)) {
                     attacker.growBy(target.getMass());

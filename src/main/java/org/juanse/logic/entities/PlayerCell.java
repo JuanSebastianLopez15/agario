@@ -17,7 +17,7 @@ public class PlayerCell extends GameEntity {
     private boolean alive;
 
     // Tiempo mínimo (ms) antes de que dos células del mismo jugador puedan volver a fusionarse
-    private static final long MERGE_COOLDOWN_MS = 5000;
+    private static final long MERGE_COOLDOWN_MS = 15000;
     private long splitTimestamp;
 
     public PlayerCell(String ownerName, double x, double y, double initialMass) {
@@ -80,4 +80,3 @@ public class PlayerCell extends GameEntity {
     public double getTargetX() { return targetX; }
     public double getTargetY() { return targetY; }
 }
-
