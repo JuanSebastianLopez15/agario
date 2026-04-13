@@ -17,7 +17,7 @@ Tu objetivo es sobrevivir, comer y convertirte en la célula más grande del map
 1. **Comida (Pellets):** Repartidos por todo el mapa(puntos estaticos de colores distribuidos por el mapa). Cómelos para aumentar tu tamaño.
 2. **Absorción (Depredador/Presa):** Puedes comerte a otro jugador **solo si tu masa es al menos un 10% mayor** que la de él.
 3. **Peligros (Hazard Balls):** Ten cuidado con las bolas rojas gigantes con el símbolo `!`. Si chocas con una y tienes masa suficiente (>20), **te dividirás en dos partes iguales**. Las Hazard Balls no se pueden comer.
-4. **Límites del Mapa:** El mapa está cerrado por paredes invisibles, no puedes escapar del área de juego.
+4. **Potenciador (celula rapida):** Con la tecla espacio, aumenta la velocidad de la celula durante 4s, la podras utilizar cada 10s.
 5. **Victoria:** El juego termina bajo dos condiciones:
     * Eres el único jugador que queda vivo (eliminaste a todos).
     * Se acaba el tiempo (Gana el jugador con mayor masa acumulada).
