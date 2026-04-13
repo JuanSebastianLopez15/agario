@@ -153,6 +153,11 @@ public class GameEngine {
     }
 
     public void applySnapshot(GameSnapshot snapshot) {
+
+        int oldPlayerCells = this.players.size();
+        double oldTotalMass = 0.0;
+        for (PlayerCell p : this.players) oldTotalMass += p.getMass();
+
         Map<String, PlayerCell> currentPlayers = new HashMap<>();
         for (PlayerCell p : players) currentPlayers.put(p.getCellId(), p);
 
@@ -185,6 +190,20 @@ public class GameEngine {
 
         if (snapshot.getGameStateName().equals("FIN DEL JUEGO") && currentState.isRunning()) {
             this.currentState = new GameOverState(scoreManager.getLeader(), "Fin de partida");
+        }
+
+        if (!isHost) {
+            int newPlayerCells = this.players.size();
+            double newTotalMass = 0.0;
+            for (PlayerCell p : this.players) newTotalMass += p.getMass();
+
+            if (newPlayerCells < oldPlayerCells) {
+                notifyAbsorption(null, null);
+            } else if (newPlayerCells > oldPlayerCells) {
+                notifySplit(null, null);
+            } else if (newTotalMass > oldTotalMass) {
+                notifyPelletEaten(null, null);
+            }
         }
     }
 
