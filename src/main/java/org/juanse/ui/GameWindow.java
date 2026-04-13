@@ -55,7 +55,7 @@ public class GameWindow extends JFrame {
 
     public GameWindow() {
         setTitle("Agar.io - Multijugador");
-        this.setSize(1000, 700);
+        this.setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
         setLocationRelativeTo(null);
@@ -78,7 +78,7 @@ public class GameWindow extends JFrame {
         backgroundPanel.setBounds(0, 0, w, h);
         layeredPane.add(backgroundPanel, JLayeredPane.DEFAULT_LAYER);
 
-        engine     = new GameEngine(1200, 800);
+        engine     = new GameEngine(w, h);
         gameScreen = new GameScreen(this, engine, "", null, "", 0);
         JPanel gamePanel = gameScreen.getMainPanel();
         gamePanel.setBounds(0, 0, w, h);
@@ -96,13 +96,13 @@ public class GameWindow extends JFrame {
      * Inicia el juego.
      *
      * HOST:
-     *   - Escucha en HOST_LISTEN_PORT (5000) los MouseInputDTO de TODOS los clientes.
-     *   - Cuando llega un cliente nuevo, guarda su IP y le envía snapshots al puerto
-     *     CLIENT_LISTEN_PORT (5001).
+     * - Escucha en HOST_LISTEN_PORT (5000) los MouseInputDTO de TODOS los clientes.
+     * - Cuando llega un cliente nuevo, guarda su IP y le envía snapshots al puerto
+     * CLIENT_LISTEN_PORT (5001).
      *
      * CLIENTE:
-     *   - Escucha en CLIENT_LISTEN_PORT (5001) los GameSnapshot del host.
-     *   - Envía su mouse al HOST_LISTEN_PORT (5000) de la IP del host.
+     * - Escucha en CLIENT_LISTEN_PORT (5001) los GameSnapshot del host.
+     * - Envía su mouse al HOST_LISTEN_PORT (5000) de la IP del host.
      */
     public void startGame(String nombre, String ip, boolean isHost) {
         this.playerName = nombre;
@@ -113,13 +113,11 @@ public class GameWindow extends JFrame {
         sender = new UDPSender();
 
         if (isHost) {
-            // El host escucha en 5000. Acepta MouseInputDTO de cualquier cliente.
             receiver = new UDPReceiver(HOST_LISTEN_PORT, (data, senderAddress) -> {
                 SwingUtilities.invokeLater(() -> {
                     if (data instanceof MouseInputDTO) {
                         MouseInputDTO mouse = (MouseInputDTO) data;
 
-                        // Registrar cliente nuevo si no está en la lista
                         InetSocketAddress clientAddr =
                                 new InetSocketAddress(senderAddress.getAddress(), CLIENT_LISTEN_PORT);
                         if (!connectedClients.contains(clientAddr)) {
@@ -127,7 +125,6 @@ public class GameWindow extends JFrame {
                             System.out.println("Nuevo cliente conectado: " + clientAddr);
                         }
 
-                        // Actualizar posición del mouse del cliente en el motor
                         engine.updatePlayerTarget(
                                 mouse.getPlayerName(),
                                 mouse.getTargetX(),
@@ -138,7 +135,6 @@ public class GameWindow extends JFrame {
             });
 
         } else {
-            // El cliente escucha en 5001 los snapshots del host.
             receiver = new UDPReceiver(CLIENT_LISTEN_PORT, (data, senderAddress) -> {
                 SwingUtilities.invokeLater(() -> {
                     if (data instanceof GameSnapshot) {
@@ -156,10 +152,9 @@ public class GameWindow extends JFrame {
 
         gameScreen.setPlayerName(nombre);
         gameScreen.setSender(sender);
-        // El cliente apunta al host; el host usará connectedClients para enviar a todos
         gameScreen.setTargetIp(this.targetIp);
         gameScreen.setTargetPort(isHost ? CLIENT_LISTEN_PORT : HOST_LISTEN_PORT);
-        gameScreen.setConnectedClients(connectedClients); // solo lo usa el host
+        gameScreen.setConnectedClients(connectedClients);
         gameScreen.setHost(isHost);
 
         layeredPane.remove(backgroundPanel);
